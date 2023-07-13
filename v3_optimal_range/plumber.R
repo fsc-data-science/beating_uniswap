@@ -53,14 +53,16 @@ trades = req$postBody
 trades <- fromJSON(trades)
 trades <- trades$params
 
-
 budget <- as.numeric(budget)
 denominate <- as.numeric(denominate)
 
-if(length(p1) == 0 | p1 == '' | is.null(p1)){
+p1 <- as.numeric(p1)
+p2 <- as.numeric(p2)
+
+if(length(p1) == 0 | p1 == '' | p1 == 0 | is.null(p1)){
   p1 <- NULL
 }
-if(length(p2) == 0 | p2 == '' | is.null(p2)){
+if(length(p2) == 0 | p2 == '' | p2 == 0 | is.null(p2)){
   p2 <- NULL
 }
 
@@ -68,10 +70,9 @@ decimal_x <- as.numeric(decimal_x)
 decimal_y <- as.numeric(decimal_y)
 fee <- as.numeric(fee)
 
-
-saveRDS(paramz, "save.rds")
-
-  return(paramz)
+paramz <- list(
+  budget, denominate, p1, p2, decimal_x, decimal_y, fee
+)
 
   decimal_adjustment <- max(c(decimal_y/decimal_x, decimal_x/decimal_y))
 
@@ -81,7 +82,6 @@ saveRDS(paramz, "save.rds")
   if( mean( required_colnames %in% colnames(trades) ) != 1 ){
   stop("Need the following columns: tick, liquidity, amount0_adjusted, amount1_adjusted")
   }
-
 
  if(is.null(p1)){
    p1 <- tick_to_price(trades$tick[1], decimal_adjustment = decimal_adjustment)
@@ -111,6 +111,11 @@ saveRDS(paramz, "save.rds")
 
   # initialize using naive search min
   init_params <- as.numeric(grid[which.min(sv), 1:2])
+
+  saveRDS(
+    list(init_params, sv, grid), "save.rds")
+
+  return("got to init_params!")
 
   # lower_bounds(amount1 = 0.01 ETH, p1 = 1 ETH/BTC)
   # upper_bounds(amount1 = 99.9 ETH, p1 = 0.99 * current price)
