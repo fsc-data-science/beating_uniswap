@@ -8,6 +8,23 @@ library(httr)
 #* for a specific pool (e.g., ETH-WBTC 0.3\% fee tier on Ethereum mainnet) get the the optimal
 #* range for accumulating 1 of the tokens in that pool (e.g., maximizing ETH).
 
+#' @filter cors
+cors <- function(req, res) {
+
+  res$setHeader("Access-Control-Allow-Origin", "*")
+
+  if (req$REQUEST_METHOD == "OPTIONS") {
+    res$setHeader("Access-Control-Allow-Methods","*")
+    res$setHeader("Access-Control-Allow-Headers", req$HTTP_ACCESS_CONTROL_REQUEST_HEADERS)
+    res$status <- 200
+    return(list())
+  } else {
+    plumber::forward()
+  }
+
+}
+
+
 #* Echo back the input
 #* @param msg The message to echo
 #* @get /echo
@@ -70,9 +87,6 @@ decimal_x <- as.numeric(decimal_x)
 decimal_y <- as.numeric(decimal_y)
 fee <- as.numeric(fee)
 
-paramz <- list(
-  budget, denominate, p1, p2, decimal_x, decimal_y, fee
-)
 
   decimal_adjustment <- max(c(decimal_y/decimal_x, decimal_x/decimal_y))
 
@@ -89,6 +103,11 @@ paramz <- list(
   if(is.null(p2)){
     p2 <- tick_to_price(tail(trades$tick,1), decimal_adjustment = decimal_adjustment)
   }
+
+
+  paramz <- list(
+    budget, denominate, p1, p2, decimal_x, decimal_y, fee
+  )
 
   # Use naive search to get close-enough initial parameters for optimization
   low_price <- ((1:9)/10)*p1
@@ -112,15 +131,10 @@ paramz <- list(
   # initialize using naive search min
   init_params <- as.numeric(grid[which.min(sv), 1:2])
 
-  saveRDS(
-    list(init_params, sv, grid), "save.rds")
-
-  return("got to init_params!")
-
-  # lower_bounds(amount1 = 0.01 ETH, p1 = 1 ETH/BTC)
-  # upper_bounds(amount1 = 99.9 ETH, p1 = 0.99 * current price)
-  lower_bounds <- c(0.01, 1)
-  upper_bounds <- c(99.9, 0.99*p1)
+  # lower_bounds(amount1 = 0.01 * budget, p1 = 0.09 * current price)
+  # upper_bounds(amount1 = .99 * budget, p1 = 0.99 * current price)
+  lower_bounds <- c(0.01*budget, 0.09*p1)
+  upper_bounds <- c(.99*budget, 0.99*p1)
 
   # in_optim = TRUE provides *only* -1*strategy value for optimization
   # (-1 b/c algorithm looks for minimums and we want maximum)
@@ -135,24 +149,29 @@ paramz <- list(
                   denominate = denominate, in_optim = TRUE)
 
   # in_optim = FALSE provides full audit of calculation
-  profit = calculate_profit(params = result$par,
+  profit = calculate_profit(params = result[[1]],
                             budget = budget, p1 = p1, p2 = p2, trades = trades,
                             decimal_x = decimal_x, decimal_y = decimal_y, fee = fee,
                             denominate = denominate,
                             in_optim = FALSE)
 
-  return(
-   jsonlite::toJSON(list(
-      p1 = p1,
-      p2 = p2,
-      init_params = init_params,
-      result_par = result$par,
-      result_warn = result$message,
-      position_details = profit$position,
-      strategy_details = profit$strategy_value
-    )
+  # gmp bigz cannot be serialized for http returns
+  profit$position$liquidity <- as.numeric(profit$position$liquidity)
+
+  ret <- list(
+    p1 = p1,
+    p2 = p2,
+    init_params = init_params,
+    result_par = result$par,
+    result_warn = result$message,
+    position_details = profit$position,
+    strategy_details = profit$strategy_value
   )
-  )
+
+  saveRDS(list(paramz, trades, ret), "save.rds")
+
+  return(ret)
+
 }
 
 # Programmatically alter your API
@@ -161,4 +180,5 @@ function(pr) {
     pr %>%
         # Overwrite the default serializer to return unboxed JSON
         pr_set_serializer(serializer_unboxed_json())
+
 }
