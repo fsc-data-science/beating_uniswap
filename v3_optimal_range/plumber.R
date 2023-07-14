@@ -2,6 +2,7 @@ library(plumber)
 library(uniswap)
 library(jsonlite)
 library(httr)
+library(shroomDK)
 
 #* @apiTitle Uniswap v3 Optimal Range
 #* @apiDescription Given a set of trades structured as Flipside Crypto ethereum.uniswapv3.ez_swaps
@@ -49,6 +50,161 @@ function(req) {
 #* @get /pull_save
 function(){
   return(readRDS("save.rds"))
+}
+
+#* Process from Svelte UI
+#* Calls /calc_optimum_range inside Snowflake SQL.
+#* @param budget The maximum amount of Token 1 available to distribute between Token 0 and Token 1 using Price 1, e.g., 100 ETH to allocate between ETH and BTC.
+#* @param denominate The Token seeking to be maximized, 1 for Token 1, 0 for Token 0.
+#* @param from_block Initial block to get WBTC-ETH Trades for analysis.
+#* @param to_block Final block to get WBTC-ETH Trades for analysis.
+#* @post /bdft
+function(budget, denominate, from_block, to_block){
+budget <- as.numeric(budget)
+denominate <- as.numeric(denominate)
+from_block <- as.numeric(from_block)
+to_block <- as.numeric(to_block)
+
+  query <- {
+    "
+with inputs AS (
+     SELECT
+            LOWER('0xCBCdF9626bC03E24f779434178A73a0B4bad62eD') as contract_address,
+            __FROM_BLOCK__ as from_block,
+            concat('0x',trim(to_char(from_block,'XXXXXXXXXX'))) as hex_block_from,
+            __TO_BLOCK__ as to_block,
+            concat('0x',trim(to_char(to_block,'XXXXXXXXXX'))) as hex_block_to,
+            ARRAY_CONSTRUCT(
+            '0xc42079f94a6350d7e6235f29174924f928cc2ac818eb64fed8004e115fbcca67',
+            NULL,
+            NULL
+            )  as event_topic_param
+),
+
+
+pool_details AS (
+  select POOL_NAME,
+TOKEN1_SYMBOL,
+TOKEN1_DECIMALS,
+TOKEN0_SYMBOL,
+TOKEN0_DECIMALS,
+ABS(TOKEN1_DECIMALS - TOKEN0_DECIMALS) as decimal_adjustment
+from ethereum.core.dim_dex_liquidity_pools
+where pool_address = (select lower(contract_address) from inputs)
+ ),
+
+create_rpc_request as (
+SELECT
+    contract_address,
+    from_block,
+    to_block,
+     livequery.utils.udf_json_rpc_call(
+            'eth_getLogs',
+            [{ 'address': contract_address,
+'fromBlock': hex_block_from,
+'toBlock': hex_block_to,
+'topics': event_topic_param }]
+     ) AS rpc_request
+FROM
+     inputs),
+
+ base AS (
+         SELECT
+         livequery.live.udf_api(
+                   'POST', -- method
+                   '{eth-mainnet-url}', -- url
+                    {},  -- default header
+                   rpc_request, -- data
+                   'charlie-quicknode' -- my registered secret name
+            ) AS api_call
+     FROM
+            create_rpc_request
+),
+
+res AS (
+SELECT
+t.value:transactionHash::string as tx_hash,
+t.value:address::string as address,
+t.value:blockNumber::string as block_number,
+regexp_substr_all(SUBSTR(t.value:data, 3, len(t.value:data)), '.{64}') as data
+ from base,
+LATERAL FLATTEN(input => api_call:data:result) t
+),
+
+send AS (
+SELECT
+address as pool_address,
+tx_hash,
+ethereum.public.udf_hex_to_int(block_number) as block_number,
+ethereum.public.udf_hex_to_int('s2c',data[0]::STRING)::FLOAT/POW(10,(select TOKEN0_DECIMALS from pool_details)) as amount0_adjusted,
+ethereum.public.udf_hex_to_int('s2c',data[1]::STRING)::FLOAT/POW(10,(select TOKEN1_DECIMALS from pool_details)) as amount1_adjusted,
+ethereum.public.udf_hex_to_int(data[2]) as sqrtPX96,
+POWER(sqrtPX96 / POWER(2, 96), 2)/(POWER(10, (SELECT decimal_adjustment from pool_details))) as price,
+ethereum.public.udf_hex_to_int(data[3]) as liquidity,
+ethereum.public.udf_hex_to_int(data[4]) as tick
+FROM res
+),
+
+send_json AS (
+SELECT '[' || LISTAGG(
+         '{' ||
+           '\"tick\": ' || tick || ',' ||
+           '\"amount0_adjusted\": ' || amount0_adjusted || ',' ||
+           '\"amount1_adjusted\": ' || amount1_adjusted || ',' ||
+           '\"liquidity\": ' || liquidity::integer || '' ||
+         '}', ','
+       ) || ']' AS trades_json
+FROM send
+),
+
+ parameters AS (
+  SELECT 'budget' AS key, __BUDGET__ AS value
+  UNION ALL
+SELECT 'denominate' AS key, __DENOMINATE__ AS value
+  UNION ALL
+  SELECT 'p1' AS key, 0 AS value -- 0 treated as NULL
+  UNION ALL
+  SELECT 'p2' AS key, 0 AS value -- 0 treated as NULL
+  UNION ALL
+  SELECT 'decimal_x' AS key, 100000000 AS value
+  UNION ALL
+  SELECT 'decimal_y' AS key, 1000000000000000000 AS value
+  UNION ALL
+  SELECT 'fee' AS key, 0.003 AS value
+),
+
+parameter_url AS (
+ SELECT
+ 'https://science.flipsidecrypto.xyz/v3_optimal_range/calc_optimum_range?'
+|| LISTAGG(key || '=' || value, '&') WITHIN GROUP (ORDER BY key) AS parameter_url
+FROM
+  parameters
+),
+
+body AS (
+select livequery.utils.udf_json_rpc_call(
+'',
+(select PARSE_JSON(trades_json) from send_json)
+) as req_body
+)
+
+ SELECT
+ livequery.live.udf_api(
+  'POST', -- method
+  (select parameter_url from parameter_url),
+  {'key': 'string'}, -- default header
+  (select req_body from body) -- data
+  ) AS api_call
+     FROM DUAL
+  "
+  }
+  query <- gsub(pattern = '__BUDGET__', replacement = budget, fixed = TRUE, x = query)
+  query <- gsub(pattern = '__DENOMINATE__', replacement = denominate, fixed = TRUE, x = query)
+  query <- gsub(pattern =  '__FROM_BLOCK__', replacement = from_block, fixed = TRUE, x = query)
+  query <- gsub(pattern =  '__TO_BLOCK__', replacement = to_block, fixed = TRUE, x = query)
+
+  x = shroomDK::auto_paginate_query(query, api_key = readLines("api_key.txt"))
+  return(x)
 }
 
 #* Return an Optimization

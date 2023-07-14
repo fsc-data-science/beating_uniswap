@@ -30,6 +30,16 @@
       ],
       "Hash": "e9c08b94391e9f3f97355841229124f2"
     },
+    "askpass": {
+      "Package": "askpass",
+      "Version": "1.1",
+      "Source": "Repository",
+      "Repository": "CRAN",
+      "Requirements": [
+        "sys"
+      ],
+      "Hash": "e8a22846fff485f0be3770c2da758713"
+    },
     "cli": {
       "Package": "cli",
       "Version": "3.6.1",
@@ -63,6 +73,17 @@
       ],
       "Hash": "022c42d49c28e95d69ca60446dbabf88"
     },
+    "digest": {
+      "Package": "digest",
+      "Version": "0.6.33",
+      "Source": "Repository",
+      "Repository": "CRAN",
+      "Requirements": [
+        "R",
+        "utils"
+      ],
+      "Hash": "b18a9cf3c003977b0cc49d5e76ebe48d"
+    },
     "ellipsis": {
       "Package": "ellipsis",
       "Version": "0.3.2",
@@ -85,6 +106,17 @@
       ],
       "Hash": "4f2596dfb05dac67b9dc558e5c6fba2e"
     },
+    "gmp": {
+      "Package": "gmp",
+      "Version": "0.7-2",
+      "Source": "Repository",
+      "Repository": "CRAN",
+      "Requirements": [
+        "R",
+        "methods"
+      ],
+      "Hash": "4a55760f68f5dddec451dfac6574c1d1"
+    },
     "httpuv": {
       "Package": "httpuv",
       "Version": "1.6.7",
@@ -99,6 +131,21 @@
         "utils"
       ],
       "Hash": "13fdc650c853fffbffee66b2a5b9fdbf"
+    },
+    "httr": {
+      "Package": "httr",
+      "Version": "1.4.6",
+      "Source": "Repository",
+      "Repository": "CRAN",
+      "Requirements": [
+        "R",
+        "R6",
+        "curl",
+        "jsonlite",
+        "mime",
+        "openssl"
+      ],
+      "Hash": "7e5e3cbd2a7bc07880c94e22348fb661"
     },
     "jsonlite": {
       "Package": "jsonlite",
@@ -153,6 +200,28 @@
         "tools"
       ],
       "Hash": "18e9c28c1d3ca1560ce30658b22ce104"
+    },
+    "openssl": {
+      "Package": "openssl",
+      "Version": "2.0.6",
+      "Source": "Repository",
+      "Repository": "CRAN",
+      "Requirements": [
+        "askpass"
+      ],
+      "Hash": "0f7cd2962e3044bb940cca4f4b5cecbe"
+    },
+    "packrat": {
+      "Package": "packrat",
+      "Version": "0.9.1",
+      "Source": "Repository",
+      "Repository": "CRAN",
+      "Requirements": [
+        "R",
+        "tools",
+        "utils"
+      ],
+      "Hash": "481428983c19a7c443f7ea1beff0a2de"
     },
     "plumber": {
       "Package": "plumber",
@@ -214,6 +283,42 @@
       ],
       "Hash": "a85c767b55f0bf9b7ad16c6d7baee5bb"
     },
+    "rsconnect": {
+      "Package": "rsconnect",
+      "Version": "0.8.29",
+      "Source": "Repository",
+      "Repository": "CRAN",
+      "Requirements": [
+        "R",
+        "curl",
+        "digest",
+        "jsonlite",
+        "openssl",
+        "packrat",
+        "rstudioapi",
+        "tools",
+        "yaml"
+      ],
+      "Hash": "fe178fc15af80952f546aafedf655b36"
+    },
+    "rstudioapi": {
+      "Package": "rstudioapi",
+      "Version": "0.15.0",
+      "Source": "Repository",
+      "Repository": "CRAN",
+      "Hash": "5564500e25cffad9e22244ced1379887"
+    },
+    "shroomDK": {
+      "Package": "shroomDK",
+      "Version": "0.2.1",
+      "Source": "Repository",
+      "Repository": "CRAN",
+      "Requirements": [
+        "httr",
+        "jsonlite"
+      ],
+      "Hash": "48901044139fbef223fc671f31473e2f"
+    },
     "sodium": {
       "Package": "sodium",
       "Version": "1.2.1",
@@ -241,6 +346,29 @@
       "Repository": "CRAN",
       "Hash": "f28d25ed70c903922254157c11b0081d"
     },
+    "sys": {
+      "Package": "sys",
+      "Version": "3.4.2",
+      "Source": "Repository",
+      "Repository": "CRAN",
+      "Hash": "3a1be13d68d47a8cd0bfd74739ca1555"
+    },
+    "uniswap": {
+      "Package": "uniswap",
+      "Version": "0.1.0",
+      "Source": "GitHub",
+      "RemoteType": "github",
+      "RemoteHost": "api.github.com",
+      "RemoteRepo": "uniswap",
+      "RemoteUsername": "fsc-data-science",
+      "RemoteRef": "HEAD",
+      "RemoteSha": "b930cf96b84564619511d48c6ad9aec3f4f9cb82",
+      "Requirements": [
+        "R",
+        "gmp"
+      ],
+      "Hash": "e7a57959a30e64f4fd994671e3b87f8e"
+    },
     "webutils": {
       "Package": "webutils",
       "Version": "1.1",
@@ -251,6 +379,13 @@
         "jsonlite"
       ],
       "Hash": "75d8b5b05fe22659b54076563f83f26a"
+    },
+    "yaml": {
+      "Package": "yaml",
+      "Version": "2.3.7",
+      "Source": "Repository",
+      "Repository": "CRAN",
+      "Hash": "0d0056cc5383fbc240ccd0cb584bf436"
     }
   }
 }
