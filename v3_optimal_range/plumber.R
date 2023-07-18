@@ -203,7 +203,7 @@ select livequery.utils.udf_json_rpc_call(
   query <- gsub(pattern =  '__FROM_BLOCK__', replacement = from_block, fixed = TRUE, x = query)
   query <- gsub(pattern =  '__TO_BLOCK__', replacement = to_block, fixed = TRUE, x = query)
 
-  x = shroomDK::auto_paginate_query(query, api_key = readLines("api_key.txt"))
+  x = shroomDK::auto_paginate_query(query, api_key = readLines("api_key.txt"), data_source = "data-science")
   return(x)
 }
 
