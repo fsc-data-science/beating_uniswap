@@ -52,6 +52,100 @@ function(){
   return(readRDS("save.rds"))
 }
 
+#* Create EZ-Swap
+#* Uses WETH-BTC 0.3 percent topic to generate ez-swap table for desired blocks
+#* @post /make_ez
+function(from_block, to_block){
+  query <- {
+  "
+with inputs AS (
+     SELECT
+            '0xCBCdF9626bC03E24f779434178A73a0B4bad62eD' as contract_address,
+            __FROM_BLOCK__ as from_block,
+            concat('0x',trim(to_char(from_block,'XXXXXXXXXX'))) as hex_block_from,
+            __TO_BLOCK__ as to_block,
+            concat('0x',trim(to_char(to_block,'XXXXXXXXXX'))) as hex_block_to,
+            ARRAY_CONSTRUCT(
+            '0xc42079f94a6350d7e6235f29174924f928cc2ac818eb64fed8004e115fbcca67',
+            NULL,
+            NULL
+            )  as event_topic_param
+),
+
+pool_details AS (
+  select POOL_NAME,
+TOKEN1_SYMBOL,
+TOKEN1_DECIMALS,
+TOKEN0_SYMBOL,
+TOKEN0_DECIMALS,
+ABS(TOKEN1_DECIMALS - TOKEN0_DECIMALS) as decimal_adjustment
+from ethereum.core.dim_dex_liquidity_pools
+where pool_address = (select lower(contract_address) from inputs)
+ ),
+
+create_rpc_request as (
+SELECT
+    contract_address,
+    from_block,
+    to_block,
+     livequery.utils.udf_json_rpc_call(
+            'eth_getLogs',
+            [{ 'address': contract_address,
+'fromBlock': hex_block_from,
+'toBlock': hex_block_to,
+'topics': event_topic_param }]
+     ) AS rpc_request
+FROM
+     inputs),
+
+ base AS (
+         SELECT
+         livequery.live.udf_api(
+                   'POST', -- method
+                   '{eth-mainnet-url}', -- url
+                    {},  -- default header
+                   rpc_request, -- data
+                   'charlie-quicknode' -- my registered secret name
+            ) AS api_call
+     FROM
+            create_rpc_request
+),
+
+res AS (
+SELECT
+t.value:transactionHash::string as tx_hash,
+t.value:address::string as address,
+t.value:blockNumber::string as block_number,
+regexp_substr_all(SUBSTR(t.value:data, 3, len(t.value:data)), '.{64}') as data
+ from base,
+LATERAL FLATTEN(input => api_call:data:result) t
+)
+
+SELECT
+address as pool_address,
+tx_hash,
+ethereum.public.udf_hex_to_int(block_number) as block_number,
+ethereum.public.udf_hex_to_int('s2c',data[0]::STRING)::FLOAT/POW(10,(select TOKEN0_DECIMALS from pool_details)) as amount0_adjusted,
+ethereum.public.udf_hex_to_int('s2c',data[1]::STRING)::FLOAT/POW(10,(select TOKEN1_DECIMALS from pool_details)) as amount1_adjusted,
+ethereum.public.udf_hex_to_int(data[2]) as sqrtPX96,
+POWER(sqrtPX96 / POWER(2, 96), 2)/(POWER(10, (SELECT decimal_adjustment from pool_details))) as price,
+ethereum.public.udf_hex_to_int(data[3]) as liquidity,
+ethereum.public.udf_hex_to_int(data[4]) as tick
+FROM res
+
+    "
+  }
+
+  query <- gsub('__FROM_BLOCK__', from_block, query)
+  query <- gsub('__TO_BLOCK__', to_block, query)
+
+  x = shroomDK::auto_paginate_query(query, api_key = readLines("api_key.txt"), data_source = 'data-science')
+
+  return(x)
+
+}
+
+
 #* Process from Svelte UI
 #* Calls /calc_optimum_range inside Snowflake SQL.
 #* @param budget The maximum amount of Token 1 available to distribute between Token 0 and Token 1 using Price 1, e.g., 100 ETH to allocate between ETH and BTC.
@@ -203,7 +297,7 @@ select livequery.utils.udf_json_rpc_call(
   query <- gsub(pattern =  '__FROM_BLOCK__', replacement = from_block, fixed = TRUE, x = query)
   query <- gsub(pattern =  '__TO_BLOCK__', replacement = to_block, fixed = TRUE, x = query)
 
-  x = shroomDK::auto_paginate_query(query, api_key = readLines("api_key.txt"), data_source = "data-science")
+  x = shroomDK::auto_paginate_query(query, api_key = readLines("api_key.txt"))
   return(x)
 }
 
