@@ -310,14 +310,20 @@
     },
     "shroomDK": {
       "Package": "shroomDK",
-      "Version": "0.2.1",
-      "Source": "Repository",
-      "Repository": "CRAN",
+      "Version": "0.2.2",
+      "Source": "GitHub",
+      "RemoteType": "github",
+      "RemoteHost": "api.github.com",
+      "RemoteRepo": "sdk",
+      "RemoteUsername": "FlipsideCrypto",
+      "RemoteRef": "HEAD",
+      "RemoteSha": "3b15ab46a4acd75ad4aa91f0c7e045b7f4ae838d",
+      "RemoteSubdir": "r/shroomDK",
       "Requirements": [
         "httr",
         "jsonlite"
       ],
-      "Hash": "48901044139fbef223fc671f31473e2f"
+      "Hash": "ee632a52bdd64ed8875c5c48f8d2fd44"
     },
     "sodium": {
       "Package": "sodium",
